@@ -1,0 +1,255 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import math as mt
+import cmath as cm
+
+scale=2*np.pi
+
+# Campo Magnético Aplicado (T) (mu0*H0)
+B0 = 1.0
+
+# Magnetização x mu0 (T)
+M0 = 0.175
+
+# Potencial Químico/Kb*T (mu = 0.5 eV; Kb = 8.6173.10^-5 eV/K; T = 300 K)
+MUC = 19.34094
+
+# Constante Reduzida de Planck (em unidades de GHz e eV)
+hbar = 6.5821e-7
+
+# Taxa de Espalhamento*Constante Reduzida de Planck (eV)
+GAMMA = 0.11e-3
+
+# Delta = vf^2*e*hbar  (e*eV*m^2/s)
+DELTA = 6.58211928e-4
+
+# Raio Giromagnético (GHz/T)
+gamma1 = 28.01
+
+# Mi relativo para o caso do meio YIG (Mike)
+mur = 1.0
+epsilon = 5.5
+
+# Frequências Características (GHz)
+w0 = gamma1*(B0 - M0)
+wm = gamma1*M0
+
+# Velocidade da Luz (m/s)
+c = 30
+
+# Intervalo de Frequência/ Passo
+wi =4.6000001
+wmax =5
+dw = (wmax - wi) /300
+
+ki =2.85000001
+kmax = 2.9
+dk = (kmax - ki) /150
+
+
+
+#2 Permeabilidade
+
+def MUXX(w):
+    XA = wm*w0/(w0**2 - (w*scale)**2)
+    return mur * (1.0 + XA)
+
+def MUXY(w):
+    XB = wm*w*scale/(w0**2 - (w*scale)**2)
+    return mur * XB
+
+def MUL(w):
+    return MUXY(w)**2 - MUXX(w)**2
+
+def MUV(w):
+    return MUXX(w) - (MUXY(w) * MUXY(w) / MUXX(w))
+
+#3 Funções complementares
+
+#4 Vetores de Onda
+def k1(w):
+    return cm.sqrt(k**2 - (w*scale/c)**2)
+
+def k2tm(w):
+    return cm.sqrt(k**2 - MUV(w)*epsilon*(w*scale/c)**2)
+
+def k2te(w):
+    return cm.sqrt( MUV(w)*(k**2 - epsilon*(w*scale/c)**2))
+
+ 
+#5 Funções complementares
+
+def A(w):
+    return -SIGMAXY*(1j*k2tm(w)/(w*scale*epsilon/c)) -1j*(MUXY(w)/MUL(w))
+
+def B(w):
+    return -(MUXY(w)/MUL(w))*k2te(w)/(w*scale/c) + SIGMAXY
+
+def C(w):
+    return -SIGMAXX*(1j*k2tm(w)/(w*scale*epsilon/c)) - (k2tm(w)/k1(w))*(1/epsilon) + MUXX(w)/MUL(w)
+
+def D(w):
+    return (MUXX(w)/MUL(w))*(1j*k2te(w)/(w*scale/c)) - 1j*k1(w)/(w*scale/c) - SIGMAXX
+
+
+#6 Relação de Dispersão para Poláritons 
+
+def f(w):
+    return np.real (A(w)*B(w) - C(w)*D(w))
+
+
+#7 Condutividade do Grafeno: (sigma/epsilon_0*c)
+
+def F(M):
+    return 1/(1 + np.exp(M*38.6 - MUC))
+
+def SIGMAXX(w):
+    wb = (w * hbar*scale) + 2 * GAMMA * 1j
+    return ((DELTA * wb * B0) / (1j))*(4/137)*SUM1(w)
+
+def SUM1(w):
+    wb = (w * hbar*scale) + 2 * GAMMA * 1j
+    M0 = 0
+    M1 = np.sqrt(DELTA * 2 * B0)
+    SUM1 = (F(M0) - F(M1) + F(-M1) - F(-M0)) / ((M1 - M0) * ((M1 - M0) ** 2 - wb ** 2)) + (
+                F(-M0) - F(M1) + F(-M1) - F(M0)) / ((M1 + M0) * ((M1 + M0) ** 2 - wb ** 2))
+
+    for i in range(1, 1000, 1):
+        M0 = np.sqrt(DELTA * 2 * i * B0)
+        M1 = np.sqrt(DELTA * 2 * (i + 1) * B0)
+        SUM1 = SUM1 + (F(M0) - F(M1) + F(-M1) - F(-M0)) / ((M1 - M0) * ((M1 - M0) ** 2 - wb ** 2)) + (
+                    F(-M0) - F(M1) + F(-M1) - F(M0)) / ((M1 + M0) * ((M1 + M0) ** 2 - wb ** 2))
+
+    return (SUM1)
+
+
+def SIGMAXY(w):
+    wb = (w * hbar*scale) + 2 * GAMMA * 1j
+    return - (DELTA*B0)*(4/137)*SUM2(w)
+
+def SUM2(w):
+    wb = (w * hbar*scale) + 2 * GAMMA * 1j
+    M0 = 0
+    M1 = np.sqrt(DELTA * 2 * B0)
+    SUM2 = (F(M0) - F(M1) - F(-M1) + F(-M0)) * 2 * (M0 ** 2 + M1 ** 2 - wb ** 2) / ((M0 ** 2 + M1 ** 2 - wb ** 2) ** 2 - 4 * M0 ** 2 * M1 ** 2)
+
+    for i in range(1, 1000, 1):
+        M0 = np.sqrt(DELTA * 2 * i * B0)
+        M1 = np.sqrt(DELTA * 2 * (i + 1) * B0)
+        SUM2 = SUM2 + (F(M0) - F(M1) - F(-M1) + F(-M0)) * 2 * (M0 ** 2 + M1 ** 2 - wb ** 2) / ((M0 ** 2 + M1 ** 2 - wb ** 2) ** 2 - 4 * M0 ** 2 * M1 ** 2)
+
+    return (SUM2)
+
+
+
+WW1=[]
+SR1=[]
+WW2=[]
+SR2=[]
+w=wi
+
+while (w < wmax):
+    SR1.append(SIGMAXX(w))
+    SR2.append(SIGMAXY(w))
+    w += dw
+
+
+
+#8 Rotinas
+k = ki
+kk = []
+ww = []
+while (k < kmax):
+    i=0
+    w = wi
+    SIGMAXX = (SR1[i])
+    SIGMAXY = (SR2[i])
+    s = np.sign(f(w))
+    r = 0
+    while (w < wmax):
+        SIGMAXX = (SR1[i])
+        SIGMAXY = (SR2[i])
+        if     (k**2>(w*scale/c)**2)  and      (   k**2 >MUV(w)*epsilon*(w*scale/c)**2    )  and  (MUV(w)*(k**2 - epsilon*(w*scale/c)**2)>0)       and    (np.sign(f(w)) != s) :
+            if (w> 4.46):
+                print("%.8f" % k, "%.8f" % w )
+                kk.append(k)
+                ww.append(w)
+        s = np.sign(f(w))
+        w += dw
+        i += 1
+
+    k += dk
+
+
+w=wi
+ww1=[]
+qq1=[]
+qq2=[]
+while(w<wmax):
+    q= w*scale/c
+    ww1.append(w)
+    qq1.append(q)
+    qq2.append(-q)
+    w+=dw
+
+## Linha de Luz 2
+w=wi
+ww2=[]
+qq11=[]
+qq22=[]
+while(w<wmax):
+    q= cm.sqrt(epsilon)*w*scale/c
+    ww2.append(w)
+    qq11.append(q)
+    qq22.append(-q)
+    w+=dw
+
+## Bulk
+w=wi
+ww3=[]
+kk1=[]
+kk2=[]
+while (w<wmax):
+    q=cm.sqrt(MUV(w)*epsilon)*w*scale/c
+    ww3.append(w)
+    kk1.append(q)
+    kk2.append(-q)
+    w+=dw
+
+
+#9 Plots:
+## Tamanho da Figura:
+plt.rcParams['figure.figsize'] = (8,6)
+plt.rcParams["font.family"] = 'Times New Roman'
+plt.rcParams["figure.autolayout"] = True
+
+## Eixos e Marcadores:
+plt.rcParams['legend.fontsize'] = 11
+
+plt.axis((ki,kmax,wi, wmax))
+plt.xlabel(r'$\mathdefault{k_x}$  ($\mathdefault{10^2}$ $\mathdefault{m^{-1}}$)',size=12)
+plt.ylabel(r'Frequency (GHz)', size=12)
+
+plt.tick_params(width=.5)
+ax = plt.gca()
+ax.xaxis.set_minor_locator(plt.MultipleLocator(0.5))
+ax.yaxis.set_minor_locator(plt.MultipleLocator(0.5))
+ax.tick_params(which='major', length=5.5, width=.5, direction='in',top=True,right=True)
+ax.tick_params(which='minor', length=3, width=.5, direction='in',top=True,right=True)
+
+ax.xaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
+ax.yaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
+
+## Plot:
+plt.scatter(kk, ww, color='forestgreen',label='B = 1.0 T', s=2.0)
+plt.plot(qq1,ww1, color='grey', linestyle=':')
+plt.plot(qq2,ww1, color='grey', linestyle=':')
+plt.plot(qq11,ww2, color='grey',linestyle='--')
+plt.plot(qq22,ww2, color='grey',linestyle='--')
+plt.plot(kk1,ww3, color='grey',linestyle='-')
+plt.plot([ki,kmax],[4.458000,4.458000], linestyle='--',color='gold',linewidth=1.0,label='$\mathdefault{\omega(\mu_V=0)}$')
+
+
+plt.legend()
+plt.savefig('B=1.0 T.pdf', format='pdf')
+plt.show()
